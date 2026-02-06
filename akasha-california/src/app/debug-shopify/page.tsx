@@ -1,51 +1,46 @@
-import { getShopifyConfig, getShopifyEndpointForDebug, storefrontGraphQL } from "@/lib/shopify"
+// src/app/debug-shopify/page.tsx
+import { getShopifyConfig, getStorefrontApiUrl, shopifyQuery } from "@/lib/shopify"
 
-type ShopQuery = {
-  data?: {
-    shop?: {
-      name: string
-      primaryDomain?: { host: string }
-    }
-  }
-  errors?: Array<{ message: string }>
-}
+export const dynamic = "force-dynamic"
 
 export default async function DebugShopifyPage() {
   const cfg = getShopifyConfig()
-  const endpoint = getShopifyEndpointForDebug()
 
   let result: unknown = null
-  let error: string | null = null
-
   try {
-    const q = `
+    result = await shopifyQuery<unknown>(`
       query DebugShop {
         shop {
           name
-          primaryDomain { host }
+          primaryDomain {
+            url
+            host
+          }
         }
       }
-    `
-    result = await storefrontGraphQL<ShopQuery>(q)
+    `)
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e)
+    result = { error: e instanceof Error ? e.message : String(e) }
   }
 
   return (
-    <div className="container mx-auto px-6 py-10">
-      <h1 className="text-3xl font-semibold mb-6">Shopify debug</h1>
+    <main style={{ padding: 24, maxWidth: 900 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Shopify debug</h1>
 
-      <div className="space-y-2 text-sm">
-        <div><span className="font-semibold">Domain:</span> {cfg.storeDomain}</div>
-        <div><span className="font-semibold">API version:</span> {cfg.apiVersion}</div>
-        <div><span className="font-semibold">Endpoint:</span> {endpoint}</div>
+      <div style={{ lineHeight: 1.8 }}>
+        <div><b>Domain</b>: {cfg.storeDomain}</div>
+        <div><b>API version</b>: {cfg.apiVersion}</div>
+        <div><b>Endpoint</b>: {getStorefrontApiUrl()}</div>
+        <div>
+          <b>Auth mode</b>:{" "}
+          {cfg.privateToken ? "private token header" : cfg.publicToken ? "public token header" : "missing token"}
+        </div>
       </div>
 
-      <h2 className="text-xl font-semibold mt-8 mb-3">GraphQL result</h2>
-
-      <pre className="text-xs bg-muted/30 border rounded-lg p-4 overflow-auto">
-        {error ? error : JSON.stringify(result, null, 2)}
+      <h2 style={{ marginTop: 24, fontSize: 18, fontWeight: 700 }}>GraphQL result</h2>
+      <pre style={{ marginTop: 12, padding: 16, background: "#f7f7f7", borderRadius: 8, overflowX: "auto" }}>
+        {JSON.stringify(result, null, 2)}
       </pre>
-    </div>
+    </main>
   )
 }
