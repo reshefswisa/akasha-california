@@ -1,29 +1,22 @@
-// src/lib/shopify.ts
-
-const apiVersion = process.env.SHOPIFY_API_VERSION || "2024-10"
-
-function getConfig() {
-  const domain = process.env.SHOPIFY_STORE_DOMAIN
+export function getShopifyConfig() {
+  const domain = "txnxad-d3.myshopify.com"
   const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
 
-  if (!domain) throw new Error("Missing env SHOPIFY_STORE_DOMAIN")
-  if (!token) throw new Error("Missing env SHOPIFY_STOREFRONT_ACCESS_TOKEN")
+  if (!token) {
+    throw new Error("Missing env SHOPIFY_STOREFRONT_ACCESS_TOKEN")
+  }
 
-const endpoint = `https://${SHOP_DOMAIN}/api/${API_VERSION}/graphql.json`
+  const endpoint =
+    "https://txnxad-d3.myshopify.com/api/2026-01/graphql.json"
 
   return { domain, token, endpoint }
-}
-
-type ShopifyResponse<T> = {
-  data?: T
-  errors?: Array<{ message: string }>
 }
 
 export async function shopifyFetch<T>(
   query: string,
   variables: Record<string, any> = {}
 ): Promise<T> {
-  const { endpoint, token } = getConfig()
+  const { endpoint, token } = getShopifyConfig()
 
   const res = await fetch(endpoint, {
     method: "POST",
@@ -35,36 +28,10 @@ export async function shopifyFetch<T>(
     cache: "no-store",
   })
 
-  const text = await res.text()
-
   if (!res.ok) {
-    throw new Error(`Shopify HTTP ${res.status}: ${text}`)
+    const text = await res.text()
+    throw new Error(`Shopify error: ${text}`)
   }
 
-  const json = JSON.parse(text) as ShopifyResponse<T>
-
-  if (json.errors?.length) {
-    throw new Error(`Shopify GraphQL error: ${json.errors.map(e => e.message).join(", ")}`)
-  }
-
-  if (!json.data) {
-    throw new Error(`Shopify missing data: ${text}`)
-  }
-
-  return json.data
-}
-
-export async function getShopName(): Promise<string> {
-  const query = `
-    query ShopName {
-      shop { name }
-    }
-  `
-  const data = await shopifyFetch<{ shop: { name: string } }>(query)
-  return data.shop.name
-}
-
-export function getShopifyEndpointForDebug(): string {
-  const { endpoint } = getConfig()
-  return endpoint
+  return res.json()
 }
