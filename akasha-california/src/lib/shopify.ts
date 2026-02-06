@@ -1,16 +1,18 @@
 // src/lib/shopify.ts
 
-const domain = process.env.SHOPIFY_STORE_DOMAIN
-const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
-
-if (!domain) throw new Error("Missing SHOPIFY_STORE_DOMAIN")
-if (!token) throw new Error("Missing SHOPIFY_STOREFRONT_ACCESS_TOKEN")
-
-// Pick a stable Storefront API version
 const apiVersion = "2025-01"
 
-// This MUST be exactly this format
-const endpoint = `https://${domain}/api/${apiVersion}/graphql.json`
+function getConfig() {
+  const domain = process.env.SHOPIFY_STORE_DOMAIN
+  const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
+
+  if (!domain) throw new Error("Missing env SHOPIFY_STORE_DOMAIN")
+  if (!token) throw new Error("Missing env SHOPIFY_STOREFRONT_ACCESS_TOKEN")
+
+  const endpoint = `https://${domain}/api/${apiVersion}/graphql.json`
+
+  return { domain, token, endpoint }
+}
 
 type ShopifyResponse<T> = {
   data?: T
@@ -21,6 +23,8 @@ export async function shopifyFetch<T>(
   query: string,
   variables: Record<string, any> = {}
 ): Promise<T> {
+  const { endpoint, token } = getConfig()
+
   const res = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -37,12 +41,7 @@ export async function shopifyFetch<T>(
     throw new Error(`Shopify HTTP ${res.status}: ${text}`)
   }
 
-  let json: ShopifyResponse<T>
-  try {
-    json = JSON.parse(text)
-  } catch {
-    throw new Error(`Shopify returned non JSON: ${text}`)
-  }
+  const json = JSON.parse(text) as ShopifyResponse<T>
 
   if (json.errors?.length) {
     throw new Error(`Shopify GraphQL error: ${json.errors.map(e => e.message).join(", ")}`)
@@ -58,11 +57,14 @@ export async function shopifyFetch<T>(
 export async function getShopName(): Promise<string> {
   const query = `
     query ShopName {
-      shop {
-        name
-      }
+      shop { name }
     }
   `
   const data = await shopifyFetch<{ shop: { name: string } }>(query)
   return data.shop.name
+}
+
+export function getShopifyEndpointForDebug(): string {
+  const { endpoint } = getConfig()
+  return endpoint
 }
