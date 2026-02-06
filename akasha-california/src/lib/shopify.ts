@@ -9,7 +9,7 @@ function getConfig() {
   if (!domain) throw new Error("Missing env SHOPIFY_STORE_DOMAIN")
   if (!token) throw new Error("Missing env SHOPIFY_STOREFRONT_ACCESS_TOKEN")
 
-  const endpoint = https://txnxad-d3.myshopify.com/api/2026-01/graphql.json
+  const endpoint = "https://txnxad-d3.myshopify.com/api/2026-01/graphql.json"
 
   return { domain, token, endpoint }
 }
