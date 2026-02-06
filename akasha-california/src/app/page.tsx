@@ -1,14 +1,11 @@
-import { getProducts } from "@/lib/shopify"
+import { getShopName } from "@/lib/shopify"
 
 export default async function HomePage() {
-  const products = await getProducts(6)
-
+  const name = await getShopName()
   return (
     <main style={{ padding: 24 }}>
-      <h1>Shopify connection test</h1>
-      <pre style={{ whiteSpace: "pre-wrap" }}>
-        {JSON.stringify(products, null, 2)}
-      </pre>
+      <h1>Shopify connection OK</h1>
+      <p>Store name: {name}</p>
     </main>
   )
 }
