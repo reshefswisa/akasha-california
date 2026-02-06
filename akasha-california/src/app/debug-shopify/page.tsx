@@ -1,43 +1,63 @@
-import { getShopifyConfig, storefrontFetch } from "@/lib/shopify"
+import { getShopifyConfig, shopifyStorefrontFetch } from "@/lib/shopify"
 
-type ShopNameResponse = {
-  data?: { shop?: { name?: string } }
-  errors?: unknown
+type ShopQueryResponse = {
+  data?: {
+    shop?: {
+      name?: string
+      primaryDomain?: { url?: string }
+    }
+  }
+  errors?: Array<{ message: string }>
 }
 
 export default async function DebugShopifyPage() {
-  const config = getShopifyConfig()
+  const cfg = getShopifyConfig()
+
+  let result: any = null
+  let error: string | null = null
 
   const query = `
-    query DebugShopName {
+    query DebugShop {
       shop {
         name
+        primaryDomain {
+          url
+        }
       }
     }
   `
 
-  let result: ShopNameResponse | { error: string } = { data: {} }
-
   try {
-    result = await storefrontFetch<ShopNameResponse>(query)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    result = { error: msg }
+    const data = await shopifyStorefrontFetch<ShopQueryResponse>(query)
+    result = data
+  } catch (e: any) {
+    error = e?.message || String(e)
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <h1>Shopify debug</h1>
+    <div className="container mx-auto px-6 py-10">
+      <h1 className="text-2xl font-semibold mb-6">Shopify debug</h1>
 
-      <div style={{ marginTop: 12 }}>
-        <div>Domain: {config.domain}</div>
-        <div>Endpoint: {config.endpoint}</div>
+      <div className="space-y-2 mb-6">
+        <div>Domain: {cfg.domain}</div>
+        <div>API version: {cfg.apiVersion}</div>
+        <div>Endpoint: {cfg.endpoint}</div>
+        <div className="text-sm text-muted-foreground">
+          If shop.name loads, your Storefront API endpoint and token are correct.
+        </div>
       </div>
 
-      <h2 style={{ marginTop: 16 }}>GraphQL result</h2>
-      <pre style={{ whiteSpace: "pre-wrap" }}>
-        {JSON.stringify(result, null, 2)}
-      </pre>
-    </main>
+      <h2 className="text-lg font-semibold mb-2">GraphQL result</h2>
+
+      {error ? (
+        <pre className="whitespace-pre-wrap rounded-md border p-4 text-sm">
+          {error}
+        </pre>
+      ) : (
+        <pre className="whitespace-pre-wrap rounded-md border p-4 text-sm">
+          {JSON.stringify(result, null, 2)}
+        </pre>
+      )}
+    </div>
   )
 }
