@@ -1,25 +1,13 @@
-import { getShopName, getShopifyEndpointForDebug } from "@/lib/shopify"
+import { getShopifyConfig } from "@/lib/shopify"
 
 export default async function HomePage() {
-  try {
-    const endpoint = getShopifyEndpointForDebug()
-    const name = await getShopName()
+  const { domain, endpoint } = getShopifyConfig()
 
-    return (
-      <main style={{ padding: 24 }}>
-        <h1>Shopify connection OK</h1>
-        <p>Endpoint: {endpoint}</p>
-        <p>Store name: {name}</p>
-      </main>
-    )
-  } catch (err: any) {
-    return (
-      <main style={{ padding: 24 }}>
-        <h1>Shopify connection failed</h1>
-        <pre style={{ whiteSpace: "pre-wrap" }}>
-          {String(err?.message || err)}
-        </pre>
-      </main>
-    )
-  }
+  return (
+    <main style={{ padding: 24 }}>
+      <h1>Shopify config OK</h1>
+      <p>Domain: {domain}</p>
+      <p>Endpoint: {endpoint}</p>
+    </main>
+  )
 }
