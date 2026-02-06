@@ -1,38 +1,38 @@
 type ShopifyConfig = {
-  domain: string
+  storeDomain: string
   apiVersion: string
-  storefrontAccessToken: string
-  endpoint: string
+  storefrontToken: string
 }
 
 export function getShopifyConfig(): ShopifyConfig {
-  const domain = process.env.SHOPIFY_STORE_DOMAIN || ""
-  const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || ""
-  const apiVersion = process.env.SHOPIFY_STOREFRONT_API_VERSION || "2025-10"
+  const storeDomain = process.env.SHOPIFY_STORE_DOMAIN
+  const apiVersion = process.env.SHOPIFY_API_VERSION || "2025-10"
+  const storefrontToken = process.env.SHOPIFY_STOREFRONT_API_TOKEN
 
-  if (!domain) {
-    throw new Error("Missing SHOPIFY_STORE_DOMAIN env var")
-  }
-  if (!storefrontAccessToken) {
-    throw new Error("Missing SHOPIFY_STOREFRONT_ACCESS_TOKEN env var")
-  }
+  if (!storeDomain) throw new Error("Missing env SHOPIFY_STORE_DOMAIN")
+  if (!storefrontToken) throw new Error("Missing env SHOPIFY_STOREFRONT_API_TOKEN")
 
-  const endpoint = `https://${domain}/api/${apiVersion}/graphql.json`
-
-  return { domain, apiVersion, storefrontAccessToken, endpoint }
+  return { storeDomain, apiVersion, storefrontToken }
 }
 
-export async function shopifyStorefrontFetch<T>(
+export function getShopifyEndpointForDebug(): string {
+  const { storeDomain, apiVersion } = getShopifyConfig()
+  return `https://${storeDomain}/api/${apiVersion}/graphql.json`
+}
+
+export async function storefrontGraphQL<T>(
   query: string,
-  variables?: Record<string, any>
+  variables?: Record<string, unknown>
 ): Promise<T> {
-  const { endpoint, storefrontAccessToken } = getShopifyConfig()
+  const { storefrontToken } = getShopifyConfig()
+  const endpoint = getShopifyEndpointForDebug()
 
   const res = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Storefront-Access-Token": storefrontAccessToken,
+      Accept: "application/json",
+      "X-Shopify-Storefront-Access-Token": storefrontToken,
     },
     body: JSON.stringify({ query, variables }),
     cache: "no-store",
