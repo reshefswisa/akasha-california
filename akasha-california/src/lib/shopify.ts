@@ -1,6 +1,6 @@
 // src/lib/shopify.ts
 
-const apiVersion = "2025-01"
+const apiVersion = process.env.SHOPIFY_API_VERSION || "2024-10"
 
 function getConfig() {
   const domain = process.env.SHOPIFY_STORE_DOMAIN
