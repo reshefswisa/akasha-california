@@ -1,81 +1,68 @@
 // src/lib/shopify.ts
 
-type ShopifyError = {
-  errors?: Array<{
-    message: string
-    extensions?: { code?: string }
-  }>
+const domain = process.env.SHOPIFY_STORE_DOMAIN
+const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
+
+if (!domain) throw new Error("Missing SHOPIFY_STORE_DOMAIN")
+if (!token) throw new Error("Missing SHOPIFY_STOREFRONT_ACCESS_TOKEN")
+
+// Pick a stable Storefront API version
+const apiVersion = "2025-01"
+
+// This MUST be exactly this format
+const endpoint = `https://${domain}/api/${apiVersion}/graphql.json`
+
+type ShopifyResponse<T> = {
+  data?: T
+  errors?: Array<{ message: string }>
 }
 
-const SHOP_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN
-const STOREFRONT_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
-
-// If you do not create this env var, it will default to 2026-01
-const API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-01"
-
-function getStorefrontEndpoint(domain: string) {
-  // domain should be like: txnad-d3.myshopify.com
-  return `https://${domain}/api/${API_VERSION}/graphql.json`
-}
-
-export async function shopifyFetch<T>({
-  query,
-  variables,
-  cache = "force-cache",
-  tags,
-}: {
-  query: string
-  variables?: Record<string, any>
-  cache?: RequestCache
-  tags?: string[]
-}): Promise<T> {
-  if (!SHOP_DOMAIN) throw new Error("Missing SHOPIFY_STORE_DOMAIN")
-  if (!STOREFRONT_TOKEN) throw new Error("Missing SHOPIFY_STOREFRONT_ACCESS_TOKEN")
-
-  const endpoint = getStorefrontEndpoint(SHOP_DOMAIN)
-
+export async function shopifyFetch<T>(
+  query: string,
+  variables: Record<string, any> = {}
+): Promise<T> {
   const res = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      // This header name must include the hyphens exactly like this
-      "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
+      "X-Shopify-Storefront-Access-Token": token,
     },
     body: JSON.stringify({ query, variables }),
-    cache,
-    // Next.js cache tags (optional)
-    ...(tags ? { next: { tags } } : {}),
+    cache: "no-store",
   })
 
-  // Shopify can return non 200 codes when the endpoint is wrong, version is wrong, etc.
+  const text = await res.text()
+
   if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    throw new Error(`Shopify HTTP ${res.status}. ${text}`)
+    throw new Error(`Shopify HTTP ${res.status}: ${text}`)
   }
 
-  const json = (await res.json()) as (ShopifyError & { data?: T })
+  let json: ShopifyResponse<T>
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(`Shopify returned non JSON: ${text}`)
+  }
 
   if (json.errors?.length) {
-    throw new Error(`Shopify error: ${JSON.stringify(json.errors)}`)
+    throw new Error(`Shopify GraphQL error: ${json.errors.map(e => e.message).join(", ")}`)
   }
 
-  return json.data as T
+  if (!json.data) {
+    throw new Error(`Shopify missing data: ${text}`)
+  }
+
+  return json.data
 }
 
-// Minimal example query so we can prove the connection works
-export async function getShopName() {
-  const query = /* GraphQL */ `
+export async function getShopName(): Promise<string> {
+  const query = `
     query ShopName {
       shop {
         name
       }
     }
   `
-
-  const data = await shopifyFetch<{ shop: { name: string } }>({
-    query,
-    cache: "no-store",
-  })
-
+  const data = await shopifyFetch<{ shop: { name: string } }>(query)
   return data.shop.name
 }
