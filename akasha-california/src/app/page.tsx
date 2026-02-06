@@ -1,12 +1,14 @@
-// src/app/page.tsx
-import { getShopName } from "@/lib/shopify"
+import { getShopName, getShopifyEndpointForDebug } from "@/lib/shopify"
 
 export default async function HomePage() {
   try {
+    const endpoint = getShopifyEndpointForDebug()
     const name = await getShopName()
+
     return (
       <main style={{ padding: 24 }}>
         <h1>Shopify connection OK</h1>
+        <p>Endpoint: {endpoint}</p>
         <p>Store name: {name}</p>
       </main>
     )
