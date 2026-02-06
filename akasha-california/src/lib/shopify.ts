@@ -1,20 +1,26 @@
-export function getShopifyConfig() {
-  const domain = "txnxad-d3.myshopify.com"
-  const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
-
-  if (!token) {
-    throw new Error("Missing env SHOPIFY_STOREFRONT_ACCESS_TOKEN")
-  }
-
-  const endpoint =
-    "https://txnxad-d3.myshopify.com/api/2026-01/graphql.json"
-
-  return { domain, token, endpoint }
+type ShopifyConfig = {
+  domain: string
+  token: string
+  apiVersion: string
+  endpoint: string
 }
 
-export async function shopifyFetch<T>(
+export function getShopifyConfig(): ShopifyConfig {
+  const domain = process.env.SHOPIFY_STORE_DOMAIN
+  const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
+  const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-01"
+
+  if (!domain) throw new Error("Missing env SHOPIFY_STORE_DOMAIN")
+  if (!token) throw new Error("Missing env SHOPIFY_STOREFRONT_ACCESS_TOKEN")
+
+  const endpoint = `https://${domain}/api/${apiVersion}/graphql.json`
+
+  return { domain, token, apiVersion, endpoint }
+}
+
+export async function storefrontFetch<T>(
   query: string,
-  variables: Record<string, any> = {}
+  variables?: Record<string, unknown>
 ): Promise<T> {
   const { endpoint, token } = getShopifyConfig()
 
@@ -28,10 +34,13 @@ export async function shopifyFetch<T>(
     cache: "no-store",
   })
 
+  const json = await res.json()
+
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Shopify error: ${text}`)
+    throw new Error(
+      `Shopify HTTP ${res.status}: ${JSON.stringify(json)}`
+    )
   }
 
-  return res.json()
+  return json as T
 }
