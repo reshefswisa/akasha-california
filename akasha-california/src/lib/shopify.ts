@@ -1,124 +1,81 @@
+// src/lib/shopify.ts
+
 type ShopifyError = {
-  message?: string
-  extensions?: { code?: string }
+  errors?: Array<{
+    message: string
+    extensions?: { code?: string }
+  }>
 }
 
-type ShopifyResponse<T> = {
-  data?: T
-  errors?: ShopifyError[]
+const SHOP_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN
+const STOREFRONT_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN
+
+// If you do not create this env var, it will default to 2026-01
+const API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-01"
+
+function getStorefrontEndpoint(domain: string) {
+  // domain should be like: txnad-d3.myshopify.com
+  return `https://${domain}/api/${API_VERSION}/graphql.json`
 }
 
-const SHOPIFY_API_VERSION = "2026-01"
-
-function mustGetEnv(name: string): string {
-  const v = process.env[name]
-  if (!v || v.trim().length === 0) throw new Error(`Missing ${name}`)
-  return v.trim()
-}
-
-function getShopifyConfig() {
-  const domain = mustGetEnv("SHOPIFY_STORE_DOMAIN")
-  const token = mustGetEnv("SHOPIFY_STOREFRONT_ACCESS_TOKEN")
-
-  const endpoint = `https://${domain}/api/${SHOPIFY_API_VERSION}/graphql.json`
-
-  return { domain, token, endpoint }
-}
-
-export async function shopifyFetch<T>(args: {
+export async function shopifyFetch<T>({
+  query,
+  variables,
+  cache = "force-cache",
+  tags,
+}: {
   query: string
   variables?: Record<string, any>
+  cache?: RequestCache
   tags?: string[]
-  cacheSeconds?: number
 }): Promise<T> {
-  const { token, endpoint } = getShopifyConfig()
+  if (!SHOP_DOMAIN) throw new Error("Missing SHOPIFY_STORE_DOMAIN")
+  if (!STOREFRONT_TOKEN) throw new Error("Missing SHOPIFY_STOREFRONT_ACCESS_TOKEN")
+
+  const endpoint = getStorefrontEndpoint(SHOP_DOMAIN)
 
   const res = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Storefront-Access-Token": token,
+      // This header name must include the hyphens exactly like this
+      "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
     },
-    body: JSON.stringify({
-      query: args.query,
-      variables: args.variables ?? {},
-    }),
-    next: {
-      revalidate: args.cacheSeconds ?? 60,
-      tags: args.tags ?? [],
-    },
+    body: JSON.stringify({ query, variables }),
+    cache,
+    // Next.js cache tags (optional)
+    ...(tags ? { next: { tags } } : {}),
   })
 
+  // Shopify can return non 200 codes when the endpoint is wrong, version is wrong, etc.
   if (!res.ok) {
-    const txt = await res.text().catch(() => "")
-    throw new Error(`Shopify HTTP ${res.status} ${txt}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`Shopify HTTP ${res.status}. ${text}`)
   }
 
-  const json = (await res.json()) as ShopifyResponse<T>
+  const json = (await res.json()) as (ShopifyError & { data?: T })
 
-  if (json.errors && json.errors.length) {
-    const msg = json.errors.map(e => e.message || "Unknown error").join(" | ")
-    throw new Error(`Shopify error ${msg}`)
+  if (json.errors?.length) {
+    throw new Error(`Shopify error: ${JSON.stringify(json.errors)}`)
   }
 
-  if (!json.data) throw new Error("Shopify returned no data")
-
-  return json.data
+  return json.data as T
 }
 
-export type MoneyV2 = { amount: string; currencyCode: string }
-
-export type ShopifyImage = {
-  url: string
-  altText: string | null
-  width: number | null
-  height: number | null
-}
-
-export type ShopifyProduct = {
-  id: string
-  handle: string
-  title: string
-  description: string
-  featuredImage: ShopifyImage | null
-  priceRange: {
-    minVariantPrice: MoneyV2
-    maxVariantPrice: MoneyV2
-  }
-}
-
-const PRODUCTS_QUERY = `
-  query Products($first: Int!) {
-    products(first: $first) {
-      nodes {
-        id
-        handle
-        title
-        description
-        featuredImage {
-          url
-          altText
-          width
-          height
-        }
-        priceRange {
-          minVariantPrice { amount currencyCode }
-          maxVariantPrice { amount currencyCode }
-        }
+// Minimal example query so we can prove the connection works
+export async function getShopName() {
+  const query = /* GraphQL */ `
+    query ShopName {
+      shop {
+        name
       }
     }
-  }
-`
+  `
 
-export async function getProducts(first = 12): Promise<ShopifyProduct[]> {
-  const data = await shopifyFetch<{
-    products: { nodes: ShopifyProduct[] }
-  }>({
-    query: PRODUCTS_QUERY,
-    variables: { first },
-    tags: ["shopify", "products"],
-    cacheSeconds: 60,
+  const data = await shopifyFetch<{ shop: { name: string } }>({
+    query,
+    cache: "no-store",
   })
 
-  return data.products.nodes
+  return data.shop.name
 }
