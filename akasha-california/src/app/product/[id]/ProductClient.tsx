@@ -37,13 +37,18 @@ export default function ProductClient({ product, allProducts }: ProductClientPro
   const inWishlist = isInWishlist(product.id);
   const productUrl = typeof window !== "undefined" ? window.location.href : "";
 
+  const hasSizes = product.sizes.length > 0;
+  const hasColors = product.colors.length > 0;
+  const hasImages = product.images.length > 0;
+  const canAddToCart = !hasSizes || !!selectedSize;
+
   const handleAddToCart = () => {
-    if (selectedSize && product) {
+    if (canAddToCart && product) {
       addItem({
         product,
         quantity,
-        selectedColor: product.colors[selectedColor].name,
-        selectedSize,
+        selectedColor: product.colors[selectedColor]?.name || "",
+        selectedSize: selectedSize || "",
       });
     }
   };
@@ -79,12 +84,16 @@ export default function ProductClient({ product, allProducts }: ProductClientPro
           {/* Image Gallery */}
           <div className="space-y-4">
             {/* Main Image with Zoom */}
-            <div className="aspect-[3/4] rounded-sm overflow-hidden bg-muted relative group">
-              <ImageZoom
-                src={product.images[mainImage]}
-                alt={product.name}
-                className="w-full h-full"
-              />
+            <div className="aspect-[3/4] rounded-sm overflow-hidden bg-muted relative group flex items-center justify-center">
+              {hasImages ? (
+                <ImageZoom
+                  src={product.images[mainImage] || product.images[0]}
+                  alt={product.name}
+                  className="w-full h-full"
+                />
+              ) : (
+                <span className="text-muted-foreground text-sm">No image</span>
+              )}
               {/* Badges */}
               <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-10">
                 {product.isNew && (
@@ -168,68 +177,72 @@ export default function ProductClient({ product, allProducts }: ProductClientPro
               url={productUrl}
               title={product.name}
               description={product.shortDescription}
-              image={product.images[0]}
+              image={product.images[0] || ""}
             />
 
             {/* Color Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium">Color: <span className="font-normal">{product.colors[selectedColor].name}</span></h3>
+            {hasColors && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">Color: <span className="font-normal">{product.colors[selectedColor]?.name || ""}</span></h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((color, index) => (
+                    <button
+                      key={color.name}
+                      onClick={() => setSelectedColor(index)}
+                      className={`w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center ${
+                        selectedColor === index ? "border-foreground scale-110" : "border-muted hover:border-muted-foreground"
+                      }`}
+                      style={{ backgroundColor: color.hex }}
+                      title={color.name}
+                      aria-label={color.name}
+                    >
+                      {selectedColor === index && (
+                        <svg
+                          className={`w-4 h-4 ${color.hex === "#FFFFFF" || color.hex === "#F5F5F5" ? "text-foreground" : "text-white"}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {product.colors.map((color, index) => (
-                  <button
-                    key={color.name}
-                    onClick={() => setSelectedColor(index)}
-                    className={`w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center ${
-                      selectedColor === index ? "border-foreground scale-110" : "border-muted hover:border-muted-foreground"
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                    title={color.name}
-                    aria-label={color.name}
-                  >
-                    {selectedColor === index && (
-                      <svg
-                        className={`w-4 h-4 ${color.hex === "#FFFFFF" || color.hex === "#F5F5F5" ? "text-foreground" : "text-white"}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* Size Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium">Size</h3>
-                <Link href="/size-guide" className="text-sm text-muted-foreground hover:text-foreground underline">
-                  Size Guide
-                </Link>
+            {hasSizes && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">Size</h3>
+                  <Link href="/size-guide" className="text-sm text-muted-foreground hover:text-foreground underline">
+                    Size Guide
+                  </Link>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`min-w-[48px] px-4 py-2.5 border rounded-sm text-sm font-medium transition-all ${
+                        selectedSize === size
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border hover:border-foreground"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                {!selectedSize && (
+                  <p className="text-sm text-muted-foreground mt-2">Please select a size</p>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`min-w-[48px] px-4 py-2.5 border rounded-sm text-sm font-medium transition-all ${
-                      selectedSize === size
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border hover:border-foreground"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-              {!selectedSize && (
-                <p className="text-sm text-muted-foreground mt-2">Please select a size</p>
-              )}
-            </div>
+            )}
 
             {/* Quantity */}
             <div>
@@ -262,8 +275,8 @@ export default function ProductClient({ product, allProducts }: ProductClientPro
             {/* Add to Cart Button */}
             <div className="space-y-3">
               <div className="flex gap-3">
-                <Button size="lg" className="flex-1 h-14 text-base" disabled={!selectedSize} onClick={handleAddToCart}>
-                  {selectedSize ? `Add to Cart - ${(product.price * quantity).toFixed(2)}` : "Select a Size"}
+                <Button size="lg" className="flex-1 h-14 text-base" disabled={!canAddToCart} onClick={handleAddToCart}>
+                  {canAddToCart ? `Add to Cart - $${(product.price * quantity).toFixed(2)}` : "Select a Size"}
                 </Button>
                 <Button
                   size="lg"
@@ -485,9 +498,9 @@ export default function ProductClient({ product, allProducts }: ProductClientPro
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <p className="font-medium">${product.price}</p>
-            <p className="text-xs text-muted-foreground">{selectedSize ? `Size: ${selectedSize}` : "Select size above"}</p>
+            <p className="text-xs text-muted-foreground">{selectedSize ? `Size: ${selectedSize}` : hasSizes ? "Select size above" : ""}</p>
           </div>
-          <Button size="lg" disabled={!selectedSize} onClick={handleAddToCart} className="flex-1">
+          <Button size="lg" disabled={!canAddToCart} onClick={handleAddToCart} className="flex-1">
             Add to Cart
           </Button>
         </div>
