@@ -115,6 +115,14 @@ export const categories: { id: Category; name: string; description: string }[] =
 ];
 
 // Product Interface
+export interface ProductVariant {
+  id: string;
+  color: string;
+  size: string;
+  availableForSale: boolean;
+  price: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -134,6 +142,7 @@ export interface Product {
   isBestSeller: boolean;
   reviews: { rating: number; count: number };
   inStock: boolean;
+  variants?: ProductVariant[];
 }
 
 // Sample Products

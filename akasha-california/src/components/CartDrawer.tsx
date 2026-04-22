@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,37 @@ import { useCart } from "@/lib/cart-context";
 
 export function CartDrawer() {
   const { items, isOpen, setIsOpen, removeItem, updateQuantity, totalItems, totalPrice } = useCart();
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const handleCheckout = async () => {
+    setCheckingOut(true);
+    setCheckoutError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            productId: i.product.id,
+            color: i.selectedColor,
+            size: i.selectedSize,
+            quantity: i.quantity,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) {
+        setCheckoutError(data.error || "Unable to start checkout. Please try again.");
+        setCheckingOut(false);
+        return;
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Unexpected error");
+      setCheckingOut(false);
+    }
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -95,10 +127,16 @@ export function CartDrawer() {
                 Shipping and taxes calculated at checkout
               </p>
               <Separator />
-              <Button className="w-full" size="lg" asChild>
-                <Link href="/checkout" onClick={() => setIsOpen(false)}>
-                  Checkout
-                </Link>
+              {checkoutError && (
+                <p className="text-xs text-destructive">{checkoutError}</p>
+              )}
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleCheckout}
+                disabled={checkingOut}
+              >
+                {checkingOut ? "Redirecting to checkout…" : "Checkout"}
               </Button>
               <Button variant="outline" className="w-full" onClick={() => setIsOpen(false)} asChild>
                 <Link href="/cart">View Cart</Link>
