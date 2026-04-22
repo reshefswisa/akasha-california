@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -10,6 +11,37 @@ import { getBestSellers } from "@/lib/data";
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
   const recommendedProducts = getBestSellers().slice(0, 4);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const handleCheckout = async () => {
+    setCheckingOut(true);
+    setCheckoutError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            productId: i.product.id,
+            color: i.selectedColor,
+            size: i.selectedSize,
+            quantity: i.quantity,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) {
+        setCheckoutError(data.error || "Unable to start checkout. Please try again.");
+        setCheckingOut(false);
+        return;
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Unexpected error");
+      setCheckingOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -194,8 +226,16 @@ export default function CartPage() {
                 </div>
 
                 {/* Checkout Button - Links to external Shopify */}
-                <Button size="lg" className="w-full mb-3">
-                  Proceed to Checkout
+                {checkoutError && (
+                  <p className="text-xs text-destructive mb-2">{checkoutError}</p>
+                )}
+                <Button
+                  size="lg"
+                  className="w-full mb-3"
+                  onClick={handleCheckout}
+                  disabled={checkingOut}
+                >
+                  {checkingOut ? "Redirecting to checkout…" : "Proceed to Checkout"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
                   Secure checkout powered by Shopify
